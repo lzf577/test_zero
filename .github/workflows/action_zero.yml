@@ -1,36 +1,32 @@
-# This is a basic workflow to help you get started with Actions
+name: Run OpenWrt on QEMU
 
-name: CI
-
-# Controls when the workflow will run
 on:
-  # Triggers the workflow on push or pull request events but only for the "main" branch
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+  workflow_dispatch:    # 手动触发
+  schedule:
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
-
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
+  openwrt-qemu:
     runs-on: ubuntu-latest
-
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+      - name: 安装 QEMU 虚拟机
+        run: sudo apt update && sudo apt install -y qemu-system-aarch64
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
-
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
+      - name: 下载 OpenWrt 固件
         run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+          wget https://raw.githubusercontent.com/lzf5039/test_zerotier/refs/heads/main/openwrt-actions.img.gz
+          wget https://raw.githubusercontent.com/lzf5039/test_zerotier/refs/heads/main/openwrt.bin.gz
+          
+      - name: 解压 OpenWrt 固件
+        run: |
+          gzip -d openwrt-actions.img.gz
+          gzip -d openwrt.bin.gz
+
+      - name: 运行 OpenWrt 虚拟机
+        run: |
+          qemu-system-aarch64 -M virt -m 1024m \
+            -kernel openwrt.bin \
+            -append "root=fe00" \
+            -hda openwrt-actions.img \
+            -nographic \
+            -cpu cortex-a76 -smp 4 \
+            -net nic -net user,id=wan,hostfwd=tcp::7080-:80,hostfwd=tcp::7022-:22
